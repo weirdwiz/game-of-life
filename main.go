@@ -1,9 +1,62 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
+)
+
+type Preset int
+
+func (p *Preset) String() string {
+	presetLimit := Preset(len(PresetStringArr))
+	if *p < PresetRandom || *p >= presetLimit {
+		return "NA"
+	}
+	return PresetStringArr[*p]
+}
+
+func (p *Preset) Set(presetStr string) error {
+	presetInt := 0
+	presetLimit := len(PresetStringArr)
+	if i64, err := strconv.ParseInt(presetStr, 0, 0); err == nil {
+		presetInt = int(i64)
+		if presetInt < 0 || presetInt >= presetLimit {
+			return fmt.Errorf("invalid preset number: %d", presetInt)
+		}
+	} else {
+		pStr := ""
+		for presetInt = range PresetStringArr {
+			if PresetStringArr[presetInt] == presetStr {
+				pStr = presetStr
+				break
+			}
+		}
+		if pStr == "" {
+			return fmt.Errorf("invalid preset name: %q", presetStr)
+		}
+	}
+	*p = Preset(presetInt)
+	return nil
+}
+
+const (
+	PresetRandom Preset = iota
+	PresetBeehive
+	PresetGlider
+	PresetPulsar
+)
+
+var (
+	_ flag.Value = new(Preset)
+)
+
+var (
+	presetVar       Preset
+	PresetStringArr = []string{
+		"random", "beehive", "glider", "pulsar"}
 )
 
 type Life [64][256]int
@@ -69,11 +122,28 @@ func presetBeehive(grid *Life) {
 	grid[20][24] = 1
 }
 
+func init() {
+	flag.Var(&presetVar, "preset",
+		"choose life pattern: 0|random (default), 1|beehive, 2|glider, 3|pulsar")
+}
+
 func main() {
+	flag.Parse()
 	grid := Life{}
 
 	// presetGlider(&grid)
-	randomise(&grid)
+	switch presetVar {
+	case PresetRandom:
+		randomise(&grid)
+	case PresetBeehive:
+		presetBeehive(&grid)
+	case PresetGlider:
+		presetGlider(&grid)
+	case PresetPulsar:
+		presetPulsar(&grid)
+	default:
+		randomise(&grid)
+	}
 
 	// run the grid
 	for {
